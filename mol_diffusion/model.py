@@ -4,6 +4,7 @@ Exact equivariance to :math:`E(3)`
 
 version of february 2021
 """
+
 import math
 from typing import Any, Dict, Optional
 
@@ -319,7 +320,10 @@ class Network(torch.nn.Module):
                 SinusoidalPositionEmbeddings(dim),
                 nn.Linear(dim, time_dim),
                 nn.GELU(),
-                nn.Linear(time_dim, time_dim),
+                nn.Linear(time_dim, time_dim),  # compress time emb to 3D
+            )
+            self.pos_mlp = nn.Sequential(
+                nn.Linear(3, dim), nn.ReLU(), nn.Linear(dim, dim)
             )
 
         if self.node_attr_emb_dim:
@@ -436,8 +440,8 @@ class Network(torch.nn.Module):
         elif time is not None:
             t = self.time_mlp(time)
             scale, shift = t.chunk(2, dim=1)
-            x = pos.new_ones((pos.shape[0], self.time_emb_dim))
-            x = x * (1 + scale) + shift
+            x = self.pos_mlp(pos)
+            x = x * (1 + scale) + shift  # use position as attr
             # x = x.reshape((x.shape.numel(), 1))
         else:
             assert self.irreps_in is None
@@ -472,8 +476,19 @@ class e3_diffusion(L.LightningModule):
         time_step: int,
         scheduler: "str",
         weight_fill: float = 0.005,
-        **model_kwargs: Dict
+        **model_kwargs: Dict,
     ) -> None:
+        """_summary_
+
+        Parameters
+        ----------
+        time_step : int
+            _description_
+        scheduler : str
+            _description_
+        weight_fill : float, optional
+            _description_, by default 0.005
+        """
         super().__init__()
         self.save_hyperparameters()
 
@@ -481,7 +496,8 @@ class e3_diffusion(L.LightningModule):
         self.diffu_sampler = diffusion_sampler(time_step, scheduler)
         self.weight_fill = weight_fill
         self.model = Network(**model_kwargs)
-        # self._init_model()
+
+        self._init_model()
 
     def forward(
         self,
