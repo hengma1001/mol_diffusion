@@ -15,16 +15,18 @@ from mol_diffusion.model import e3_diffusion
 from mol_diffusion.training import train_diffu
 from mol_diffusion.utils import dict_from_yaml
 
-wandb_logger = WandbLogger(project="receptor-diffusion", log_model="all")
-
-time_step = 200
+time_step = 500
 scheduler = "quadratic_beta_schedule"
 time_emb_dim = 32
 node_attr_emb_dim = 20
+
+wandb_logger = WandbLogger(
+    project="receptor-diffusion", group=f"{scheduler}", log_model="all"
+)
+
+
 # radius_decay = time_step * 0.8
-
-
-save_path = "rec_diffusion_qm9"
+save_path = "diffusion_qm9"
 input_dict = f"{save_path}/input.yml"
 input_dict = dict_from_yaml(input_dict)
 
@@ -61,7 +63,7 @@ model, result = train_diffu(
     train,
     val,
     test,
-    n_gpus=6,
+    n_gpus=5,
     max_epochs=500,
     every_n_epochs=10,
     logger=wandb_logger,

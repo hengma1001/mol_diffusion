@@ -39,6 +39,8 @@ dev = [
     "ruff",
     "tox",
     "virtualenv",
+    "torch",
+    "e3nn",
 ]
 docs = [
     "black",

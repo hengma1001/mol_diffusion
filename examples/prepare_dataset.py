@@ -10,7 +10,7 @@ sys.path.append("../")
 from mol_diffusion.preprocessing import dbs_split, dbs_to_torch, xyzs_to_dbs
 from mol_diffusion.utils import dict_to_yaml
 
-save_path = "rec_diffusion_qm9"
+save_path = "diffusion_qm9"
 os.makedirs(save_path, exist_ok=True)
 save_path = os.path.abspath(save_path)
 
