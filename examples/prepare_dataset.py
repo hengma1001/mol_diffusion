@@ -13,12 +13,15 @@ from mol_diffusion.utils import dict_to_yaml
 save_path = "diffusion_qm9"
 os.makedirs(save_path, exist_ok=True)
 save_path = os.path.abspath(save_path)
+batch_size = 64
 
 lig_xyzs = glob.glob(
     "/lambda_stor/homes/heng.ma/Research/md_pkgs/dataset-qm9/xyz/*.xyz"
 )
 dbs = xyzs_to_dbs(lig_xyzs, node_attr=True)
-dbs, full_voca_size, labelencoder = dbs_to_torch(dbs, scale_factor=1)
+dbs, full_voca_size, labelencoder = dbs_to_torch(
+    dbs, scale_factor=1, batch_size=batch_size
+)
 
 input_dict = {}
 input_dict["full_voca_size"] = full_voca_size
@@ -29,7 +32,9 @@ joblib.dump(labelencoder, le_save, compress=9)
 input_dict["labelencoder"] = le_save
 
 
-train, val, test = dbs_split(dbs, split_ratio=[0.7, 0.2, 0.1], shuffle=True)
+train, val, test = dbs_split(
+    dbs, split_ratio=[0.7, 0.2, 0.1], shuffle=True, batch_size=batch_size
+)
 
 for dataset, name in zip([train, val, test], ["train", "val", "test"]):
     data_save = f"{save_path}/{name}.pth"

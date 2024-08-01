@@ -118,19 +118,20 @@ def lig_to_pdb(
     atoms.write(pdb_output)
 
 
-def dbs_to_torch(dbs, scale_factor=1.0):
+def dbs_to_torch(dbs, scale_factor=1.0, batch_size=64):
     full_voca = np.concatenate([data["res_atom_name"] for data in dbs])
     full_voca_size = len(set(full_voca))
     label_encoder = preprocessing.LabelEncoder()
     label_encoder.fit(full_voca)
 
     dbs_refined = []
-    for data in dbs:
+    for i, data in enumerate(dbs):
         data = torch_geometric.data.Data(
             pos=data["pos"] * scale_factor,
             z=torch.from_numpy(
                 label_encoder.transform(data["res_atom_name"]).reshape(-1, 1)
             ),
+            batch=torch.ones(len(data["pos"])) * i,
             sys_name=data["sys_name"],
         )
         dbs_refined.append(data)
@@ -159,16 +160,20 @@ def paths_to_pdbs(comp_paths):
     return prot_pdbs, lig_mols
 
 
-def dbs_split(dbs, split_ratio=[0.7, 0.2, 0.1], shuffle=True, random_seed=0):
+def dbs_split(
+    dbs, split_ratio=[0.7, 0.2, 0.1], shuffle=True, random_seed=0, batch_size=64
+):
     if shuffle:
         random.seed(random_seed)
         random.shuffle(dbs)
     train, val_test = train_test_split(dbs, train_size=int(split_ratio[0] * len(dbs)))
     val, test = train_test_split(val_test, train_size=int(split_ratio[1] * len(dbs)))
 
-    train = torch_geometric.loader.DataLoader(train, batch_size=1, shuffle=shuffle)
-    val = torch_geometric.loader.DataLoader(val, batch_size=1, shuffle=shuffle)
-    test = torch_geometric.loader.DataLoader(test, batch_size=1, shuffle=shuffle)
+    train = torch_geometric.loader.DataLoader(
+        train, batch_size=batch_size, shuffle=shuffle
+    )
+    val = torch_geometric.loader.DataLoader(val, batch_size=batch_size)
+    test = torch_geometric.loader.DataLoader(test, batch_size=batch_size)
 
     return train, val, test
 
