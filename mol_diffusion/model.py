@@ -323,7 +323,7 @@ class Network(torch.nn.Module):
                 nn.Linear(time_dim, time_dim),  # compress time emb to 3D
             )
             self.pos_mlp = nn.Sequential(
-                nn.Linear(3, dim), nn.ReLU(), nn.Linear(dim, dim)
+                nn.Linear(3, dim), nn.SiLU(), nn.Linear(dim, dim)
             )
 
         if self.node_attr_emb_dim:
@@ -388,6 +388,7 @@ class Network(torch.nn.Module):
         time: Optional[torch.Tensor] = None,
         pos: Optional[torch.Tensor] = None,
         radius_decay_ratio: Optional[float] = None,
+        use_original_geometry: bool = False,
     ) -> torch.Tensor:
         """evaluate the network
 
@@ -415,11 +416,17 @@ class Network(torch.nn.Module):
             max_radius = float(self.max_radius * radius_decay_ratio)
         else:
             max_radius = self.max_radius
-        edge_index = radius_graph(pos, max_radius, batch)
-        # print(max_radius, len(edge_index[0]))
-        edge_src = edge_index[0]
-        edge_dst = edge_index[1]
-        edge_vec = pos[edge_src] - pos[edge_dst]
+
+        if use_original_geometry:
+            edge_index = radius_graph(data["pos"], max_radius, batch)
+            edge_src = edge_index[0]
+            edge_dst = edge_index[1]
+            edge_vec = data["pos"][edge_src] - data["pos"][edge_dst]
+        else:
+            edge_index = radius_graph(pos, max_radius, batch)
+            edge_src = edge_index[0]
+            edge_dst = edge_index[1]
+            edge_vec = pos[edge_src] - pos[edge_dst]
         edge_sh = o3.spherical_harmonics(
             self.irreps_edge_attr, edge_vec, True, normalization="component"
         )
@@ -504,6 +511,7 @@ class e3_diffusion(L.LightningModule):
         data: Dict[str, torch.Tensor],
         time: Optional[torch.Tensor] = None,
         pos: Optional[torch.Tensor] = None,
+        use_original_geometry: bool = False,
     ) -> torch.Tensor:
         """evaluate the network
 
@@ -521,7 +529,7 @@ class e3_diffusion(L.LightningModule):
         #     rdr = 1 - self.diffu_sampler.betas[int(time[0].to("cpu"))] * 4
         # else:
         #     rdr = None
-        results = self.model(data, time, pos)  # , rdr)
+        results = self.model(data, time, pos, use_original_geometry)  # , rdr)
         return results
 
     def _init_model(self):
@@ -530,20 +538,28 @@ class e3_diffusion(L.LightningModule):
 
     def _get_loss(self, data, time=None):
         device = self.device
-        noise = torch.randn_like(data["pos"])
+        pos = data["pos"]
+        noise = torch.randn_like(pos)
 
         if time is None:
             time = torch.randint(self.time_step, (1,))
         else:
             time = torch.Tensor(time).to(device)
-        x_noisy = self.diffu_sampler.q_sample(data["pos"], int(time[0]), noise=noise)
-        predicted_noise = self.forward(
+
+        # edge_index = radius_graph(
+        #     pos,
+        #     self.model.max_radius,
+        #     batch=data["batch"],
+        # )
+        x_noisy = self.diffu_sampler.q_sample(pos, int(time[0]), noise=noise)
+        predicted_noise = self(
             data.to(device),
             time.to(device),
             x_noisy.to(device),
+            use_original_geometry=True,
         )
         self.log("sample time", int(time[0]))
-        return F.mse_loss(noise, predicted_noise)
+        return F.smooth_l1_loss(noise, predicted_noise)
 
     def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)

@@ -21,6 +21,18 @@ class SaveModelCallback(Callback):
             trainer.save_checkpoint(model_savepath, weights_only=True)
 
 
+# class SampleTimeCallback(Callback):
+#     def on_validation_batch_end(
+#         self, trainer: L.Trainer, pl_module: L.LightningModule, *args, **kwargs
+#     ):
+#         trainer.current_step
+#         trainer.logger.experiment.log()
+#         self.dirpath = os.path.join(trainer.default_root_dir, "models")
+#         if trainer.current_epoch % self.every_n_epochs == 0:
+#             model_savepath = Path(self.dirpath) / f"epoch={trainer.current_epoch}.ckpt"
+#             trainer.save_checkpoint(model_savepath, weights_only=True)
+
+
 def train_diffu(
     model,
     default_root_dir,
