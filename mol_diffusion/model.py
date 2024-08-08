@@ -468,6 +468,8 @@ class Network(torch.nn.Module):
 
         for lay in self.layers:
             x = lay(x, z, edge_src, edge_dst, edge_attr, edge_features)
+            # if t is not None:
+            #     x = x * (1 + scale) + shift
 
         if self.reduce_output:
             return scatter(x, batch, dim_size=int(batch.max()) + 1).div(
@@ -504,7 +506,7 @@ class e3_diffusion(L.LightningModule):
         self.weight_fill = weight_fill
         self.model = Network(**model_kwargs)
 
-        self._init_model()
+        # self._init_model()
 
     def forward(
         self,
@@ -532,14 +534,15 @@ class e3_diffusion(L.LightningModule):
         results = self.model(data, time, pos, use_original_geometry)  # , rdr)
         return results
 
-    def _init_model(self):
-        for _, param in self.named_parameters():
-            param.data.fill_(self.weight_fill)
+    # def _init_model(self):
+    #     for _, param in self.named_parameters():
+    #         param.data.fill_(self.weight_fill)
 
-    def _get_loss(self, data, time=None):
+    def _get_loss(self, data, time=None, noise=None):
         device = self.device
         pos = data["pos"]
-        noise = torch.randn_like(pos)
+        if noise is None:
+            noise = torch.randn_like(pos)
 
         if time is None:
             time = torch.randint(self.time_step, (1,))
@@ -559,7 +562,7 @@ class e3_diffusion(L.LightningModule):
             use_original_geometry=True,
         )
         self.log("sample time", int(time[0]))
-        return F.smooth_l1_loss(noise, predicted_noise)
+        return F.mse_loss(noise, predicted_noise)
 
     def configure_optimizers(self) -> Dict:
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)

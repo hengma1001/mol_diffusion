@@ -4,8 +4,10 @@ import sys
 
 import joblib
 import torch
-import wandb
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers.wandb import WandbLogger
+
+# import wandb
+
 
 sys.path.append("../")
 
@@ -16,13 +18,11 @@ from mol_diffusion.training import train_diffu
 from mol_diffusion.utils import dict_from_yaml
 
 time_step = 500
-scheduler = "quadratic_beta_schedule"
+scheduler = "linear_beta_schedule"
 time_emb_dim = 32
 node_attr_emb_dim = 20
 
-wandb_logger = WandbLogger(
-    project="receptor-diffusion", group=f"{scheduler}", log_model="all"
-)
+wandb_logger = WandbLogger(project="receptor-diffusion", group=f"{scheduler}")
 
 
 # radius_decay = time_step * 0.8
@@ -37,14 +37,14 @@ for db_name in ["train", "val", "test"]:
 
 model_kwargs = {
     "irreps_in": f"{time_emb_dim}x0e",  # no input features
-    "irreps_hidden": "64x0e + 64x0o + 32x1e + 32x1o + 8x2e + 8x2o",  # hyperparameter
-    "irreps_out": "1e",  # 12 vectors out, but only 1 vector out per input
+    "irreps_hidden": "64x0e + 64x0o + 32x1e + 32x1o + 16x2e + 16x2o",  # hyperparameter
+    "irreps_out": "3x0o",  # 12 vectors out, but only 1 vector out per input
     "irreps_node_attr": f"{node_attr_emb_dim}x0e",
-    "irreps_edge_attr": 3,
-    "layers": 6,  # hyperparameter
-    "max_radius": 3.5,
+    "irreps_edge_attr": 4,
+    "layers": 4,  # hyperparameter
+    "max_radius": 2,
     "number_of_basis": 10,
-    "radial_layers": 1,
+    "radial_layers": 3,
     "radial_neurons": 128,
     "num_neighbors": 11,  # average number of neighbors w/in max_radius
     "num_nodes": 12,  # not important unless reduce_output is True
@@ -63,7 +63,7 @@ model, result = train_diffu(
     train,
     val,
     test,
-    n_gpus=5,
+    n_gpus=2,
     max_epochs=500,
     every_n_epochs=10,
     logger=wandb_logger,

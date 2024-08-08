@@ -119,11 +119,13 @@ class diffusion_sampler(object):
 
     # Algorithm 2 (including returning all images)
     @torch.no_grad()
-    def p_sample_loop(self, model, data: dict, time_step=None, noise=None):
+    def p_sample_loop(
+        self, model, data: dict, initial_pose=None, time_step=None, noise=None
+    ):
         if time_step is None:
             time_step = self.time_step
         device = model.device
-        input_pose = data["pos"]
+        input_pose = initial_pose if initial_pose is not None else model["pos"]
 
         # start from pure noise (for each example in the batch)
         poses = torch.zeros(time_step + 1, *input_pose.shape).to(device)
@@ -137,7 +139,9 @@ class diffusion_sampler(object):
             pose = poses[i + 1]
             if noise is None:
                 t_tensor = torch.Tensor([i]).to(device)
-                noise = model(data, t_tensor, pose).to(device)
+                noise = model(data, t_tensor, pose, use_original_geometry=True).to(
+                    device
+                )
             poses[i] = self.p_sample(data, pose, i, noise=noise)
         return poses
 
@@ -149,6 +153,8 @@ class diffusion_sampler(object):
         return self.p_sample_loop(model, data)
 
     @torch.no_grad()
-    def sample_pose(self, model, data, time_step=None, noise=None):
+    def sample_pose(self, model, data, initial_pos=None, time_step=None, noise=None):
         assert data["pos"].shape[-1] == 3
-        return self.p_sample_loop(model, data.to(model.device), time_step, noise=noise)
+        return self.p_sample_loop(
+            model, data.to(model.device), initial_pos, time_step, noise=noise
+        )
