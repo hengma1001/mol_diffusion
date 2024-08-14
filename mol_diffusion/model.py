@@ -506,8 +506,6 @@ class e3_diffusion(L.LightningModule):
         self.weight_fill = weight_fill
         self.model = Network(**model_kwargs)
 
-        # self._init_model()
-
     def forward(
         self,
         data: Dict[str, torch.Tensor],
@@ -533,10 +531,6 @@ class e3_diffusion(L.LightningModule):
         #     rdr = None
         results = self.model(data, time, pos, use_original_geometry)  # , rdr)
         return results
-
-    # def _init_model(self):
-    #     for _, param in self.named_parameters():
-    #         param.data.fill_(self.weight_fill)
 
     def _get_loss(self, data, time=None, noise=None):
         device = self.device
