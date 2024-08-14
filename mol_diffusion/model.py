@@ -320,11 +320,11 @@ class Network(torch.nn.Module):
                 SinusoidalPositionEmbeddings(dim),
                 nn.Linear(dim, time_dim),
                 nn.GELU(),
-                nn.Linear(time_dim, time_dim),  # compress time emb to 3D
+                nn.Linear(time_dim, 3 * 2),  # compress time emb to 3D
             )
-            self.pos_mlp = nn.Sequential(
-                nn.Linear(3, dim), nn.SiLU(), nn.Linear(dim, dim)
-            )
+            # self.pos_mlp = nn.Sequential(
+            #     nn.Linear(3, dim), nn.SiLU(), nn.Linear(dim, dim)
+            # )
 
         if self.node_attr_emb_dim:
             self.node_attr_emb = nn.Embedding(
@@ -447,8 +447,8 @@ class Network(torch.nn.Module):
         elif time is not None:
             t = self.time_mlp(time)
             scale, shift = t.chunk(2, dim=1)
-            x = self.pos_mlp(pos)
-            x = x * (1 + scale) + shift  # use position as attr
+            # x = self.pos_mlp(pos)
+            x = pos * (1 + scale) + shift  # use position as attr
             # x = x.reshape((x.shape.numel(), 1))
         else:
             assert self.irreps_in is None
@@ -562,10 +562,10 @@ class e3_diffusion(L.LightningModule):
             use_original_geometry=True,
         )
         self.log("sample time", int(time[0]))
-        return F.mse_loss(noise, predicted_noise)
+        return F.smooth_l1_loss(noise, predicted_noise)
 
     def configure_optimizers(self) -> Dict:
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-2)
         # Using a scheduler is optional but can be helpful.
         # The scheduler reduces the LR if the validation performance hasn't improved for the last N epochs
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(

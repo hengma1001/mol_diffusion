@@ -36,12 +36,12 @@ for db_name in ["train", "val", "test"]:
     exec(f"{db_name} = torch.load('{input_dict[db_name]}')")
 
 model_kwargs = {
-    "irreps_in": f"{time_emb_dim}x0e",  # no input features
+    "irreps_in": f"1o",  # no input features
     "irreps_hidden": "64x0e + 64x0o + 32x1e + 32x1o + 16x2e + 16x2o",  # hyperparameter
     "irreps_out": "1o",  # 12 vectors out, but only 1 vector out per input
     "irreps_node_attr": f"{node_attr_emb_dim}x0e",
-    "irreps_edge_attr": 4,
-    "layers": 4,  # hyperparameter
+    "irreps_edge_attr": 5,
+    "layers": 6,  # hyperparameter
     "max_radius": 2,
     "number_of_basis": 10,
     "radial_layers": 3,
